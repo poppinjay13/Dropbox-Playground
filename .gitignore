@@ -13,7 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
-.idea/
+.idea
 app/release
 /signing.properties
 app/signing.properties
+/app/src/main/java/com/poppinjay13/dropboxplayground/Config.java
