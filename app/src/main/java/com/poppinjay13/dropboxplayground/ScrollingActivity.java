@@ -5,6 +5,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -31,50 +33,30 @@ import java.util.List;
 
 public class ScrollingActivity extends AppCompatActivity {
 
+    CollapsingToolbarLayout toolBarLayout;
     RecyclerView dropboxRecycler;
     List<Meta> metaList = new ArrayList<>();
-    ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scrolling);
+
+        //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        CollapsingToolbarLayout toolBarLayout = (CollapsingToolbarLayout) findViewById(R.id.toolbar_layout);
-        toolBarLayout.setTitle(getTitle());
+        toolBarLayout = (CollapsingToolbarLayout) findViewById(R.id.toolbar_layout);
+        toolBarLayout.setTitle("Playground");
 
         dropboxRecycler = findViewById(R.id.dropbox_recycler);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(view -> {
-            /*
-            I'm using a thread coz I don't want to perform network requests on the main thread
-            It is more advisable to use an AsyncTask or a Service / IntentService if you will be making regular requests
-            And also to avoid memory leaks but I'm lazy.
-            */
-            Thread thread = new Thread(() -> {
-                try {
-                    DbxRequestConfig config = DbxRequestConfig.newBuilder("dropbox/java-tutorial").build();
-                    DbxClientV2 client = new DbxClientV2(config, Config.ACCESS_TOKEN);
-                    // Get current user account info
-                    FullAccount account = client.users().getCurrentAccount();
-                    //Updating UI on main thread
-                    runOnUiThread(() -> toolBarLayout.setTitle(account.getName().getDisplayName()));
-                    getFilesInRootDir(client);
-                } catch (NetworkIOException ex) {
-                    Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).show();
-                } catch (DbxException ex) {
-                    Snackbar.make(view, "A dropbox error occurred", Snackbar.LENGTH_LONG).show();
-                    ex.printStackTrace();
-                } catch (Exception ex) {
-                    Snackbar.make(view, "An error occurred", Snackbar.LENGTH_LONG).show();
-                    ex.printStackTrace();
-                }
-            });
-            thread.start();
+            Toast.makeText(this, "Coming Soon", Toast.LENGTH_SHORT).show();
         });
     }
+
 
     private void getFilesInRootDir(DbxClientV2 client) throws DbxException {
         // Get files and folder metadata from Dropbox root directory
@@ -106,6 +88,38 @@ public class ScrollingActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        loadUserDetails();
+    }
+
+    private void loadUserDetails() {
+        View view = findViewById(R.id.app_bar);
+        /*
+            I'm using a thread coz I don't want to perform network requests on the main thread
+            It is more advisable to use an AsyncTask or a Service / IntentService if you will be making regular requests
+            And also to avoid memory leaks but I'm lazy.
+            */
+        Thread thread = new Thread(() -> {
+            try {
+                DbxRequestConfig config = DbxRequestConfig.newBuilder("dropbox/java-tutorial").build();
+                DbxClientV2 client = new DbxClientV2(config, Config.ACCESS_TOKEN);
+                // Get current user account info
+                FullAccount account = client.users().getCurrentAccount();
+                //Updating UI on main thread
+                runOnUiThread(() -> toolBarLayout.setTitle(account.getName().getDisplayName()));
+                getFilesInRootDir(client);
+            } catch (NetworkIOException ex) {
+                Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).setAction("Reload", v -> {
+                    loadUserDetails();
+                }).show();
+            } catch (DbxException ex) {
+                Snackbar.make(view, "A dropbox error occurred", Snackbar.LENGTH_LONG).show();
+                ex.printStackTrace();
+            } catch (Exception ex) {
+                Snackbar.make(view, "An error occurred", Snackbar.LENGTH_LONG).show();
+                ex.printStackTrace();
+            }
+        });
+        thread.start();
     }
 
     @Override
