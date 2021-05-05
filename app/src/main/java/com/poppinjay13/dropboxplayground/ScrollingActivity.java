@@ -33,7 +33,6 @@ import com.google.gson.Gson;
 import com.poppinjay13.dropboxplayground.adapters.DirectoryAdapter;
 import com.poppinjay13.dropboxplayground.entities.Meta;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +40,7 @@ import java.util.List;
 public class ScrollingActivity extends AppCompatActivity {
 
     DbxClientV2 client;
+    View view;
 
     CollapsingToolbarLayout toolBarLayout;
     RecyclerView dropboxRecycler;
@@ -78,6 +78,8 @@ public class ScrollingActivity extends AppCompatActivity {
                 }
             }
         });
+
+        view = findViewById(R.id.app_bar);
     }
 
     @Override
@@ -87,7 +89,6 @@ public class ScrollingActivity extends AppCompatActivity {
     }
 
     private void loadUserDetails() {
-        View view = findViewById(R.id.app_bar);
         /*
             I'm using a thread coz I don't want to perform network requests on the main thread
             It is more advisable to use an AsyncTask or a Service / IntentService if you will be making regular requests
@@ -101,7 +102,7 @@ public class ScrollingActivity extends AppCompatActivity {
                 FullAccount account = client.users().getCurrentAccount();
                 //Updating UI on main thread
                 runOnUiThread(() -> toolBarLayout.setTitle(account.getName().getDisplayName()));
-                getFilesInRootDir();
+                getFilesInDir("");
             } catch (NetworkIOException ex) {
                 Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).setAction("Reload", v -> {
                     loadUserDetails();
@@ -117,32 +118,48 @@ public class ScrollingActivity extends AppCompatActivity {
         thread.start();
     }
 
-    private void getFilesInRootDir() throws DbxException {
-        metaList = new ArrayList<>();
-        // Get files and folder metadata from Dropbox root directory
-        ListFolderResult result = client.files().listFolder("");
-        while (true) {
-            for (Metadata metadata : result.getEntries()) {
-                //Converting to Meta POJO to access inaccessible fields in Metadata
-                Meta meta = new Gson().fromJson(metadata.toString(), Meta.class);
-                metaList.add(meta);
+    public void getFilesInDir(String path) {
+        //TODO UX and Transitions
+        Thread thread = new Thread(() -> {
+            try {
+                metaList = new ArrayList<>();
+                // Get files and folder metadata from Dropbox root directory
+                ListFolderResult result = client.files().listFolder(path);
+                while (true) {
+                    for (Metadata metadata : result.getEntries()) {
+                        //Converting to Meta POJO to access inaccessible fields in Metadata
+                        Meta meta = new Gson().fromJson(metadata.toString(), Meta.class);
+                        metaList.add(meta);
+                    }
+                    if (!result.getHasMore()) {
+                        break;
+                    }
+                    result = client.files().listFolderContinue(result.getCursor());
+                }
+                LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
+                    @Override
+                    public boolean canScrollVertically() {
+                        return false;
+                    }
+                };
+                //updating UI
+                runOnUiThread(() -> {
+                    dropboxRecycler.setLayoutManager(layoutManager);
+                    dropboxRecycler.setAdapter(new DirectoryAdapter(metaList, ScrollingActivity.this));
+                });
+            } catch (NetworkIOException ex) {
+                Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).setAction("Reload", v -> {
+                    getFilesInDir(path);
+                }).show();
+            } catch (DbxException ex) {
+                Snackbar.make(view, "A dropbox error occurred", Snackbar.LENGTH_LONG).show();
+                ex.printStackTrace();
+            } catch (Exception ex) {
+                Snackbar.make(view, "An error occurred", Snackbar.LENGTH_LONG).show();
+                ex.printStackTrace();
             }
-            if (!result.getHasMore()) {
-                break;
-            }
-            result = client.files().listFolderContinue(result.getCursor());
-        }
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
-            @Override
-            public boolean canScrollVertically() {
-                return false;
-            }
-        };
-        //updating UI
-        runOnUiThread(() -> {
-            dropboxRecycler.setLayoutManager(layoutManager);
-            dropboxRecycler.setAdapter(new DirectoryAdapter(metaList, ScrollingActivity.this));
         });
+        thread.start();
     }
 
     @Override
@@ -196,11 +213,15 @@ public class ScrollingActivity extends AppCompatActivity {
                     InputStream in = getContentResolver().openInputStream(fileUri);
                     FileMetadata metadata = client.files().uploadBuilder("/test/test.jpg")
                             .uploadAndFinish(in);
+                } catch (NetworkIOException ex) {
+                    Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).setAction("Reload", v -> {
+                        loadUserDetails();
+                    }).show();
                 } catch (DbxException ex) {
-                    Toast.makeText(this, "A dropbox error occurred", Toast.LENGTH_LONG).show();
+                    Snackbar.make(view, "A dropbox error occurred", Snackbar.LENGTH_LONG).show();
                     ex.printStackTrace();
-                } catch (IOException ex) {
-                    Toast.makeText(this, "An error occurred reading the file", Toast.LENGTH_LONG).show();
+                } catch (Exception ex) {
+                    Snackbar.make(view, "An error occurred", Snackbar.LENGTH_LONG).show();
                     ex.printStackTrace();
                 }
             });

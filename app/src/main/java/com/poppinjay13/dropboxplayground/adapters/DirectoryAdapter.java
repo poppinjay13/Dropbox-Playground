@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.poppinjay13.dropboxplayground.R;
+import com.poppinjay13.dropboxplayground.ScrollingActivity;
 import com.poppinjay13.dropboxplayground.entities.Meta;
 
 import java.text.MessageFormat;
@@ -53,8 +54,11 @@ public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.Cust
                 Toast.makeText(context, "Oops", Toast.LENGTH_SHORT).show();
             }
             holder.itemView.setOnClickListener(v -> {
-                //TODO
-                Toast.makeText(context, "To be Implemented", Toast.LENGTH_SHORT).show();
+                if (metadata.getTag().equals("folder")) {
+                    if (context instanceof ScrollingActivity)
+                        ((ScrollingActivity) context).getFilesInDir(metadata.getPathDisplay());
+                } else
+                    Toast.makeText(context, "To be Implemented", Toast.LENGTH_SHORT).show();
             });
         } catch (Exception ex) {
             Toast.makeText(context, "An error occurred", Toast.LENGTH_SHORT).show();
