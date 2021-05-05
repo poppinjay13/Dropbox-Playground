@@ -34,6 +34,7 @@
             android:paddingHorizontal="10dp"
             android:textSize="16sp"
             android:textStyle="bold"
+            tools:layout_width="175dp"
             tools:text="@tools:sample/lorem" />
 
         <LinearLayout
@@ -64,6 +65,7 @@
                 android:paddingVertical="2dp"
                 android:textSize="14sp"
                 android:textStyle="bold"
+                tools:layout_width="125dp"
                 tools:text="@tools:sample/lorem" />
         </LinearLayout>
 
