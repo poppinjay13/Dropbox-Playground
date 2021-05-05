@@ -8,10 +8,12 @@
     tools:context=".ScrollingActivity"
     tools:showIn="@layout/activity_scrolling">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/dropbox_recycler"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="@dimen/text_margin"
-        android:text="@string/large_text" />
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="20dp"
+        tools:listitem="@layout/file_folder_meta" />
 
 </androidx.core.widget.NestedScrollView>

@@ -7,17 +7,33 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.NetworkIOException;
 import com.dropbox.core.v2.DbxClientV2;
+import com.dropbox.core.v2.files.ListFolderResult;
+import com.dropbox.core.v2.files.Metadata;
 import com.dropbox.core.v2.users.FullAccount;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.gson.Gson;
+import com.poppinjay13.dropboxplayground.adapters.DirectoryAdapter;
+import com.poppinjay13.dropboxplayground.entities.Meta;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ScrollingActivity extends AppCompatActivity {
+
+    RecyclerView dropboxRecycler;
+    List<Meta> metaList = new ArrayList<>();
+    ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,6 +43,8 @@ public class ScrollingActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         CollapsingToolbarLayout toolBarLayout = (CollapsingToolbarLayout) findViewById(R.id.toolbar_layout);
         toolBarLayout.setTitle(getTitle());
+
+        dropboxRecycler = findViewById(R.id.dropbox_recycler);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(view -> {
@@ -41,7 +59,11 @@ public class ScrollingActivity extends AppCompatActivity {
                     DbxClientV2 client = new DbxClientV2(config, Config.ACCESS_TOKEN);
                     // Get current user account info
                     FullAccount account = client.users().getCurrentAccount();
-                    Snackbar.make(view, account.getName().getDisplayName(), Snackbar.LENGTH_LONG).show();
+                    //Updating UI on main thread
+                    runOnUiThread(() -> toolBarLayout.setTitle(account.getName().getDisplayName()));
+                    getFilesInRootDir(client);
+                } catch (NetworkIOException ex) {
+                    Snackbar.make(view, "Unable to connect to Dropbox", Snackbar.LENGTH_LONG).show();
                 } catch (DbxException ex) {
                     Snackbar.make(view, "A dropbox error occurred", Snackbar.LENGTH_LONG).show();
                     ex.printStackTrace();
@@ -52,6 +74,38 @@ public class ScrollingActivity extends AppCompatActivity {
             });
             thread.start();
         });
+    }
+
+    private void getFilesInRootDir(DbxClientV2 client) throws DbxException {
+        // Get files and folder metadata from Dropbox root directory
+        ListFolderResult result = client.files().listFolder("");
+        while (true) {
+            for (Metadata metadata : result.getEntries()) {
+                //Converting to Meta POJO to access inaccessible fields in Metadata
+                Meta meta = new Gson().fromJson(metadata.toString(), Meta.class);
+                metaList.add(meta);
+            }
+            if (!result.getHasMore()) {
+                break;
+            }
+            result = client.files().listFolderContinue(result.getCursor());
+        }
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
+            @Override
+            public boolean canScrollVertically() {
+                return false;
+            }
+        };
+        //updating UI
+        runOnUiThread(() -> {
+            dropboxRecycler.setLayoutManager(layoutManager);
+            dropboxRecycler.setAdapter(new DirectoryAdapter(metaList, ScrollingActivity.this));
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
     }
 
     @Override
@@ -70,6 +124,11 @@ public class ScrollingActivity extends AppCompatActivity {
 
         if (id == R.id.action_settings) {
             return true;
+        }
+        if (id == R.id.light_mode) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        } else if (id == R.id.dark_mode) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         } else if (id == R.id.developer) {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://poppinjay13.github.io/")));
         }
